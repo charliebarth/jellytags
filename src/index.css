@@ -37,7 +37,7 @@ body {
 /* Glassmorphism Utilities */
 .glass-panel {
   background: var(--glass-bg);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(50px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
@@ -333,7 +333,7 @@ select.glass-input option {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  color: var(--text-muted);
+  /*color: var(--text-muted);*/
 }
 
 .sidebar-header {
@@ -492,8 +492,6 @@ select.glass-input option {
   flex-direction: column;
   gap: 8px;
   margin-bottom: 24px;
-  max-height: 240px;
-  overflow-y: auto;
 }
 
 .selected-item-card {
@@ -578,16 +576,23 @@ select.glass-input option {
   .sidebar-container {
     position: fixed !important;
     top: 0;
-    right: -20px;
+    right: 0 !important;
+    width: 100vw;
     height: 100vh;
-    padding: 16px;
+    padding: 0 !important;
     z-index: 100;
     pointer-events: none;
   }
 
   #tag-editor-sidebar {
-    width: 280px !important;
-    max-width: calc(100vw);
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: 100vw;
+    border-radius: 0;
+    border: none;
+    margin: 0;
+    padding: 24px;
+    overflow-y: auto;
     transform: translateX(100%);
     transition: transform 0.3s ease;
     pointer-events: auto;

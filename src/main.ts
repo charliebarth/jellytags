@@ -221,7 +221,6 @@ function updateSidebar() {
 
 function renderSidebarEditor(tagCounts: Record<string, number>) {
     const selectedItems = allItems.filter(i => selectedIds.has(i.Id));
-    const isMobile = window.innerWidth <= 768;
 
     sidebarEl.innerHTML = `
         <div>
@@ -231,7 +230,7 @@ function renderSidebarEditor(tagCounts: Record<string, number>) {
                     <span class="sidebar-selection-count">
                         ${selectedIds.size} selected
                     </span>
-                    ${isMobile ? '<button id="sidebar-close" class="sidebar-close-btn">&times;</button>' : ''}
+                    <button id="sidebar-close" class="sidebar-close-btn mobile-only">&times;</button>
                 </div>
             </div>
             <button id="clear-btn" class="clear-btn">
