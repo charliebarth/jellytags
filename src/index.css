@@ -334,6 +334,8 @@ select.glass-input option {
   flex-direction: column;
   gap: 24px;
   /*color: var(--text-muted);*/
+  overflow: scroll;
+  max-height: 100%;
 }
 
 .sidebar-header {
