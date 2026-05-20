@@ -187,6 +187,10 @@ select.glass-input option {
   background: rgba(0, 0, 0, 0.2);
 }
 
+.source-library-select-field {
+  min-width: 180px;
+}
+
 .header-button {
   padding: 8px 16px;
   font-size: 0.9rem;
