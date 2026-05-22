@@ -330,6 +330,7 @@ function updateSidebar() {
 
 function renderSidebarEditor(tagCounts: Record<string, number>) {
     const selectedItems = allItems.filter(i => selectedIds.has(i.Id));
+    const applyButtonLabel = getApplyButtonLabel();
 
     sidebarEl.innerHTML = `
         <div>
@@ -385,9 +386,12 @@ function renderSidebarEditor(tagCounts: Record<string, number>) {
             <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer; color: var(--text-main);">
                 <input type="radio" name="apply-mode" value="replace" style="accent-color: var(--jelly-blue);" /> Replace
             </label>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer; color: var(--text-main);">
+                <input type="radio" name="apply-mode" value="remove" style="accent-color: var(--jelly-blue);" /> Remove
+            </label>
         </div>
         <button id="apply-btn" class="glass-button apply-btn">
-            Apply to ${selectedIds.size} Items
+            ${applyButtonLabel} ${selectedIds.size} Items
         </button>
 
         <div class="selected-items-section">
@@ -425,6 +429,15 @@ function renderSidebarEditor(tagCounts: Record<string, number>) {
             proposedTags.push(val);
             renderSidebarEditor(tagCounts);
         }
+    });
+
+    document.querySelectorAll('input[name="apply-mode"]').forEach(el => {
+        el.addEventListener('change', () => {
+            const applyBtn = document.getElementById('apply-btn') as HTMLButtonElement | null;
+            if (applyBtn) {
+                applyBtn.innerText = `${getApplyButtonLabel()} ${selectedIds.size} Items`;
+            }
+        });
     });
 
     document.querySelectorAll('[data-remove-tag]').forEach(el => {
@@ -506,7 +519,9 @@ function renderSidebarEditor(tagCounts: Record<string, number>) {
                     const currentTags = serverItem.Tags || localItem?.Tags || [];
                     const updatedTags = mode === 'append'
                         ? Array.from(new Set([...currentTags, ...proposedTags]))
-                        : [...proposedTags];
+                        : mode === 'remove'
+                            ? currentTags.filter((tag: string) => !proposedTags.includes(tag))
+                            : [...proposedTags];
 
                     await updateApi.updateItem({
                         itemId: id,
@@ -554,11 +569,26 @@ function renderSidebarEditor(tagCounts: Record<string, number>) {
                 );
             }
         } finally {
-            btn.innerText = `Apply to ${selectedIds.size} Items`;
+            btn.innerText = `${getApplyButtonLabel()} ${selectedIds.size} Items`;
             btn.disabled = false;
             btn.classList.remove('apply-btn-disabled');
         }
     });
+}
+
+function getApplyButtonLabel() {
+    const modeInput = document.querySelector('input[name="apply-mode"]:checked') as HTMLInputElement | null;
+    const mode = modeInput ? modeInput.value : 'append';
+
+    if (mode === 'replace') {
+        return 'Replace on';
+    }
+
+    if (mode === 'remove') {
+        return 'Remove from';
+    }
+
+    return 'Append to';
 }
 
 // 5. Setup Listeners
