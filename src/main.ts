@@ -30,6 +30,8 @@ type MediaItem = {
     Type?: string;
     Tags?: string[];
     DateCreated?: string;
+    OfficialRating?: string | null;
+    CustomRating?: string | null;
     ImageTags?: { Primary?: string };
     SourceLibraryId?: string;
     SourceLibraryName?: string;
@@ -57,6 +59,7 @@ const refreshBtn = document.getElementById('refresh-btn') as HTMLButtonElement;
 const selectAllBtn = document.getElementById('select-all-btn') as HTMLButtonElement;
 const sortSelect = document.getElementById('sort-select') as HTMLSelectElement;
 const sourceLibrarySelect = document.getElementById('source-library-select') as HTMLSelectElement;
+const parentalRatingSelect = document.getElementById('parental-rating-select') as HTMLSelectElement;
 const sidebarToggle = document.getElementById('sidebar-toggle') as HTMLButtonElement;
 const sidebarClose = document.getElementById('sidebar-close') as HTMLButtonElement;
 
@@ -148,6 +151,7 @@ async function fetchItems() {
         }
 
         allItems = Array.from(allItemsById.values());
+        renderParentalRatingFilterOptions();
 
         filterAndRender();
     } catch (err) {
@@ -166,6 +170,23 @@ function renderSourceLibraryOptions() {
 
     const canRestoreSelection = sourceLibraries.some(library => library.id === previousValue);
     sourceLibrarySelect.value = canRestoreSelection ? previousValue : 'all';
+}
+
+function renderParentalRatingFilterOptions() {
+    const previousParentalValue = parentalRatingSelect.value;
+
+    const parentalRatings = Array.from(new Set(
+        allItems
+            .map(item => item.OfficialRating?.trim())
+            .filter((rating): rating is string => Boolean(rating))
+    )).sort((a, b) => a.localeCompare(b));
+
+    parentalRatingSelect.innerHTML = `
+        <option value="all">All Parental Ratings</option>
+        ${parentalRatings.map(rating => `<option value="${rating}">${rating}</option>`).join('')}
+    `;
+
+    parentalRatingSelect.value = parentalRatings.includes(previousParentalValue) ? previousParentalValue : 'all';
 }
 
 function renderGrid(itemsToRender: MediaItem[]) {
@@ -245,9 +266,11 @@ function selectAllFiltered() {
 function filterAndRender() {
     const q = searchInput.value.toLowerCase();
     const selectedLibraryId = sourceLibrarySelect.value;
+    const selectedParentalRating = parentalRatingSelect.value;
 
     let filtered = allItems.filter(i =>
         (selectedLibraryId === 'all' || i.SourceLibraryId === selectedLibraryId) &&
+        (selectedParentalRating === 'all' || (i.OfficialRating || '').trim() === selectedParentalRating) &&
         (
             (i.Name || '').toLowerCase().includes(q) ||
             (i.Tags && i.Tags.some((t: string) => t.toLowerCase().includes(q)))
@@ -544,6 +567,7 @@ refreshBtn.addEventListener('click', fetchItems);
 selectAllBtn.addEventListener('click', selectAllFiltered);
 sortSelect.addEventListener('change', filterAndRender);
 sourceLibrarySelect.addEventListener('change', filterAndRender);
+parentalRatingSelect.addEventListener('change', filterAndRender);
 
 // Boot
 init();

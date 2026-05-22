@@ -191,6 +191,10 @@ select.glass-input option {
   min-width: 180px;
 }
 
+.rating-select-field {
+  min-width: 170px;
+}
+
 .header-button {
   padding: 8px 16px;
   font-size: 0.9rem;
