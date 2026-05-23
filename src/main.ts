@@ -3,7 +3,7 @@ import { getItemsApi } from '@jellyfin/sdk/lib/utils/api/items-api';
 import { getItemUpdateApi } from '@jellyfin/sdk/lib/utils/api/item-update-api';
 import { getSystemApi } from '@jellyfin/sdk/lib/utils/api/system-api';
 import { getUserApi } from '@jellyfin/sdk/lib/utils/api/user-api';
-import { getUserLibraryApi } from '@jellyfin/sdk/lib/utils/api/user-library-api';
+import { getUserViewsApi } from '@jellyfin/sdk/lib/utils/api/user-views-api';
 import { BaseItemKind, ItemFields } from '@jellyfin/sdk/lib/generated-client/models';
 
 // 1. Initialize SDK
@@ -22,9 +22,29 @@ const itemsApi = getItemsApi(api);
 const updateApi = getItemUpdateApi(api);
 const systemApi = getSystemApi(api);
 const userApi = getUserApi(api);
-const userLibraryApi = getUserLibraryApi(api);
+const userViewsApi = getUserViewsApi(api);
 
-let allItems: any[] = [];
+type MediaItem = {
+    Id: string;
+    Name?: string;
+    Type?: string;
+    Tags?: string[];
+    DateCreated?: string;
+    OfficialRating?: string | null;
+    CustomRating?: string | null;
+    ImageTags?: { Primary?: string };
+    SourceLibraryId?: string;
+    SourceLibraryName?: string;
+};
+
+type SourceLibrary = {
+    id: string;
+    name: string;
+};
+
+let allItems: MediaItem[] = [];
+let filteredItems: MediaItem[] = [];
+let sourceLibraries: SourceLibrary[] = [];
 let selectedIds = new Set<string>();
 let currentUserId = '';
 let proposedTags: string[] = [];
@@ -36,7 +56,10 @@ const sidebarEl = document.getElementById('tag-editor-sidebar') as HTMLDivElemen
 const sidebarOverlay = document.getElementById('sidebar-overlay') as HTMLDivElement;
 const searchInput = document.getElementById('search-input') as HTMLInputElement;
 const refreshBtn = document.getElementById('refresh-btn') as HTMLButtonElement;
+const selectAllBtn = document.getElementById('select-all-btn') as HTMLButtonElement;
 const sortSelect = document.getElementById('sort-select') as HTMLSelectElement;
+const sourceLibrarySelect = document.getElementById('source-library-select') as HTMLSelectElement;
+const parentalRatingSelect = document.getElementById('parental-rating-select') as HTMLSelectElement;
 const sidebarToggle = document.getElementById('sidebar-toggle') as HTMLButtonElement;
 const sidebarClose = document.getElementById('sidebar-close') as HTMLButtonElement;
 
@@ -79,12 +102,56 @@ async function fetchItems() {
     gridEl.style.display = 'none';
 
     try {
-        const res = await itemsApi.getItems({
-            recursive: true,
-            includeItemTypes: [BaseItemKind.Movie, BaseItemKind.Series] as BaseItemKind[],
-            fields: [ItemFields.Tags, ItemFields.DateCreated] as ItemFields[]
-        },);
-        allItems = res.data.Items || [];
+        const viewsRes = await userViewsApi.getUserViews({ userId: currentUserId });
+        const views = (viewsRes.data.Items || []).filter(v => v.Id && v.Name);
+
+        sourceLibraries = views.map(v => ({
+            id: v.Id as string,
+            name: v.Name as string
+        }));
+        renderSourceLibraryOptions();
+
+        const allItemsById = new Map<string, MediaItem>();
+
+        if (sourceLibraries.length === 0) {
+            const fallbackRes = await itemsApi.getItems({
+                userId: currentUserId,
+                recursive: true,
+                includeItemTypes: [BaseItemKind.Movie, BaseItemKind.Series] as BaseItemKind[],
+                fields: [ItemFields.Tags, ItemFields.DateCreated] as ItemFields[]
+            });
+
+            (fallbackRes.data.Items || []).forEach(item => {
+                if (!item.Id) return;
+                allItemsById.set(item.Id, item as MediaItem);
+            });
+        } else {
+            const libraryItemResults = await Promise.all(sourceLibraries.map(async (library) => {
+                const res = await itemsApi.getItems({
+                    userId: currentUserId,
+                    parentId: library.id,
+                    recursive: true,
+                    includeItemTypes: [BaseItemKind.Movie, BaseItemKind.Series] as BaseItemKind[],
+                    fields: [ItemFields.Tags, ItemFields.DateCreated] as ItemFields[]
+                });
+
+                return (res.data.Items || []).map(item => ({
+                    ...(item as MediaItem),
+                    SourceLibraryId: library.id,
+                    SourceLibraryName: library.name
+                }));
+            }));
+
+            libraryItemResults.flat().forEach(item => {
+                if (!item.Id) return;
+                if (!allItemsById.has(item.Id)) {
+                    allItemsById.set(item.Id, item);
+                }
+            });
+        }
+
+        allItems = Array.from(allItemsById.values());
+        renderParentalRatingFilterOptions();
 
         filterAndRender();
     } catch (err) {
@@ -93,7 +160,36 @@ async function fetchItems() {
     }
 }
 
-function renderGrid(itemsToRender: any[]) {
+function renderSourceLibraryOptions() {
+    const previousValue = sourceLibrarySelect.value;
+
+    sourceLibrarySelect.innerHTML = `
+        <option value="all">All Libraries</option>
+        ${sourceLibraries.map(library => `<option value="${library.id}">${library.name}</option>`).join('')}
+    `;
+
+    const canRestoreSelection = sourceLibraries.some(library => library.id === previousValue);
+    sourceLibrarySelect.value = canRestoreSelection ? previousValue : 'all';
+}
+
+function renderParentalRatingFilterOptions() {
+    const previousParentalValue = parentalRatingSelect.value;
+
+    const parentalRatings = Array.from(new Set(
+        allItems
+            .map(item => item.OfficialRating?.trim())
+            .filter((rating): rating is string => Boolean(rating))
+    )).sort((a, b) => a.localeCompare(b));
+
+    parentalRatingSelect.innerHTML = `
+        <option value="all">All Parental Ratings</option>
+        ${parentalRatings.map(rating => `<option value="${rating}">${rating}</option>`).join('')}
+    `;
+
+    parentalRatingSelect.value = parentalRatings.includes(previousParentalValue) ? previousParentalValue : 'all';
+}
+
+function renderGrid(itemsToRender: MediaItem[]) {
     gridEl.innerHTML = '';
 
     if (itemsToRender.length === 0) {
@@ -134,7 +230,7 @@ function renderGrid(itemsToRender: any[]) {
             </div>
             <div class="media-card-info">
                 <div class="media-card-title">${item.Name}</div>
-                <div class="media-card-type">${item.Type}</div>
+                <div class="media-card-type">${item.Type}${item.SourceLibraryName ? ` • ${item.SourceLibraryName}` : ''}</div>
                 <div class="media-card-tags">
                     ${tagsHtml}
                 </div>
@@ -162,11 +258,23 @@ function clearSelection() {
     filterAndRender();
 }
 
+function selectAllFiltered() {
+    filteredItems.forEach(item => selectedIds.add(item.Id));
+    filterAndRender();
+}
+
 function filterAndRender() {
     const q = searchInput.value.toLowerCase();
+    const selectedLibraryId = sourceLibrarySelect.value;
+    const selectedParentalRating = parentalRatingSelect.value;
+
     let filtered = allItems.filter(i =>
-        i.Name.toLowerCase().includes(q) ||
-        (i.Tags && i.Tags.some((t: string) => t.toLowerCase().includes(q)))
+        (selectedLibraryId === 'all' || i.SourceLibraryId === selectedLibraryId) &&
+        (selectedParentalRating === 'all' || (i.OfficialRating || '').trim() === selectedParentalRating) &&
+        (
+            (i.Name || '').toLowerCase().includes(q) ||
+            (i.Tags && i.Tags.some((t: string) => t.toLowerCase().includes(q)))
+        )
     );
 
     const sortVal = sortSelect.value;
@@ -187,7 +295,8 @@ function filterAndRender() {
         return 0;
     });
 
-    renderGrid(filtered);
+    filteredItems = filtered;
+    renderGrid(filteredItems);
 }
 
 // 4. Sidebar Logic
@@ -221,6 +330,7 @@ function updateSidebar() {
 
 function renderSidebarEditor(tagCounts: Record<string, number>) {
     const selectedItems = allItems.filter(i => selectedIds.has(i.Id));
+    const applyButtonLabel = getApplyButtonLabel();
 
     sidebarEl.innerHTML = `
         <div>
@@ -276,9 +386,12 @@ function renderSidebarEditor(tagCounts: Record<string, number>) {
             <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer; color: var(--text-main);">
                 <input type="radio" name="apply-mode" value="replace" style="accent-color: var(--jelly-blue);" /> Replace
             </label>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer; color: var(--text-main);">
+                <input type="radio" name="apply-mode" value="remove" style="accent-color: var(--jelly-blue);" /> Remove
+            </label>
         </div>
         <button id="apply-btn" class="glass-button apply-btn">
-            Apply to ${selectedIds.size} Items
+            ${applyButtonLabel} ${selectedIds.size} Items
         </button>
 
         <div class="selected-items-section">
@@ -318,6 +431,15 @@ function renderSidebarEditor(tagCounts: Record<string, number>) {
         }
     });
 
+    document.querySelectorAll('input[name="apply-mode"]').forEach(el => {
+        el.addEventListener('change', () => {
+            const applyBtn = document.getElementById('apply-btn') as HTMLButtonElement | null;
+            if (applyBtn) {
+                applyBtn.innerText = `${getApplyButtonLabel()} ${selectedIds.size} Items`;
+            }
+        });
+    });
+
     document.querySelectorAll('[data-remove-tag]').forEach(el => {
         el.addEventListener('click', (e) => {
             const tag = (e.currentTarget as HTMLElement).getAttribute('data-remove-tag')!;
@@ -355,41 +477,127 @@ function renderSidebarEditor(tagCounts: Record<string, number>) {
 
         try {
             const ids = Array.from(selectedIds);
+            let successCount = 0;
+            const failedItems: string[] = [];
 
-            for (const id of ids) {
-                const itemRes = await userLibraryApi.getItem({ itemId: id, userId: currentUserId });
-                const fullItem = itemRes.data;
+            for (let index = 0; index < ids.length; index++) {
+                const id = ids[index];
+                btn.innerText = `Saving ${index + 1}/${ids.length}...`;
 
-                if (mode === 'append') {
-                    const currentTags = fullItem.Tags || [];
-                    const newTags = Array.from(new Set([...currentTags, ...proposedTags]));
-                    fullItem.Tags = newTags;
-                } else {
-                    fullItem.Tags = [...proposedTags];
+                try {
+                    const localItem = allItems.find(i => i.Id === id);
+                    const itemRes = await itemsApi.getItems({
+                        ids: [id],
+                        userId: currentUserId,
+                        fields: [
+                            ItemFields.Tags,
+                            ItemFields.Genres,
+                            ItemFields.Overview,
+                            ItemFields.ProviderIds,
+                            ItemFields.Studios,
+                            ItemFields.People,
+                            ItemFields.Taglines,
+                            ItemFields.ProductionLocations,
+                            ItemFields.OriginalTitle,
+                            ItemFields.SortName,
+                            ItemFields.CustomRating,
+                            ItemFields.DateCreated,
+                            ItemFields.RemoteTrailers,
+                            ItemFields.ExternalUrls,
+                        ] as ItemFields[]
+                    });
+                    const serverItem = itemRes.data.Items?.[0];
+                    if (!serverItem) {
+                        throw new Error(`Item ${id} not found on server.`);
+                    }
+                    const itemName = serverItem.Name || localItem?.Name || '';
+
+                    if (!itemName) {
+                        throw new Error('Cannot update item without a Name field.');
+                    }
+
+                    const currentTags = serverItem.Tags || localItem?.Tags || [];
+                    const updatedTags = mode === 'append'
+                        ? Array.from(new Set([...currentTags, ...proposedTags]))
+                        : mode === 'remove'
+                            ? currentTags.filter((tag: string) => !proposedTags.includes(tag))
+                            : [...proposedTags];
+
+                    await updateApi.updateItem({
+                        itemId: id,
+                        baseItemDto: {
+                            ...serverItem,
+                            Id: id,
+                            Name: itemName,
+                            Tags: updatedTags,
+                            Genres: serverItem.Genres || [],
+                            ProviderIds: serverItem.ProviderIds || {}
+                        }
+                    });
+
+                    if (localItem) localItem.Tags = [...updatedTags];
+
+                    successCount++;
+                } catch (itemError) {
+                    const axiosLikeError = itemError as {
+                        response?: { status?: number; data?: unknown };
+                        message?: string;
+                    };
+                    console.error(
+                        `Failed to update item ${id}`,
+                        axiosLikeError?.message || itemError,
+                        axiosLikeError?.response?.status,
+                        axiosLikeError?.response?.data
+                    );
+                    const failedItem = allItems.find(i => i.Id === id);
+                    failedItems.push(failedItem?.Name || id);
                 }
-
-                await updateApi.updateItem({ itemId: id, baseItemDto: fullItem });
-
-                const localItem = allItems.find(i => i.Id === id);
-                if (localItem) localItem.Tags = [...fullItem.Tags];
             }
-            alert(`Successfully updated tags for ${ids.length} items!`);
-            clearSelection();
-        } catch (err) {
-            console.error(err);
-            alert('Error updating tags.');
+
+            if (successCount > 0) {
+                clearSelection();
+            }
+
+            if (failedItems.length === 0) {
+                alert(`Successfully updated tags for ${successCount} items!`);
+            } else {
+                const preview = failedItems.slice(0, 10).join(', ');
+                const remaining = failedItems.length > 10 ? ` (+${failedItems.length - 10} more)` : '';
+                alert(
+                    `Updated ${successCount}/${ids.length} items. Failed: ${failedItems.length}.\n` +
+                    `Failed items: ${preview}${remaining}`
+                );
+            }
         } finally {
-            btn.innerText = `Apply to ${selectedIds.size} Items`;
+            btn.innerText = `${getApplyButtonLabel()} ${selectedIds.size} Items`;
             btn.disabled = false;
             btn.classList.remove('apply-btn-disabled');
         }
     });
 }
 
+function getApplyButtonLabel() {
+    const modeInput = document.querySelector('input[name="apply-mode"]:checked') as HTMLInputElement | null;
+    const mode = modeInput ? modeInput.value : 'append';
+
+    if (mode === 'replace') {
+        return 'Replace on';
+    }
+
+    if (mode === 'remove') {
+        return 'Remove from';
+    }
+
+    return 'Append to';
+}
+
 // 5. Setup Listeners
 searchInput.addEventListener('input', filterAndRender);
 refreshBtn.addEventListener('click', fetchItems);
+selectAllBtn.addEventListener('click', selectAllFiltered);
 sortSelect.addEventListener('change', filterAndRender);
+sourceLibrarySelect.addEventListener('change', filterAndRender);
+parentalRatingSelect.addEventListener('change', filterAndRender);
 
 // Boot
 init();

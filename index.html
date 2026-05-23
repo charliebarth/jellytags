@@ -25,12 +25,21 @@
       </div>
 
       <div class="header-actions">
+        <select id="source-library-select" class="glass-input sort-select-field source-library-select-field">
+          <option value="all" selected>All Libraries</option>
+        </select>
+        <select id="parental-rating-select" class="glass-input sort-select-field rating-select-field">
+          <option value="all" selected>All Parental Ratings</option>
+        </select>
         <select id="sort-select" class="glass-input sort-select-field">
           <option value="name-asc">Alphabetical (A-Z)</option>
           <option value="name-desc">Alphabetical (Z-A)</option>
           <option value="date-desc" selected>Date Added (Newest)</option>
           <option value="date-asc">Date Added (Oldest)</option>
         </select>
+        <button id="select-all-btn" class="glass-button header-button">
+          Select All
+        </button>
         <button id="refresh-btn" class="glass-button header-button">
           Refresh
         </button>
