@@ -49,6 +49,18 @@ let selectedIds = new Set<string>();
 let currentUserId = '';
 let proposedTags: string[] = [];
 
+// Escape user-controlled strings before injecting into innerHTML. Media names,
+// tags and library names can contain <, >, &, or quotes which otherwise break
+// rendering and allow HTML injection.
+function escapeHtml(value: unknown): string {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 // 2. DOM Elements
 const gridEl = document.getElementById('media-grid') as HTMLDivElement;
 const loadingEl = document.getElementById('loading-indicator') as HTMLDivElement;
@@ -168,7 +180,7 @@ function renderSourceLibraryOptions() {
 
     sourceLibrarySelect.innerHTML = `
         <option value="all">All Libraries</option>
-        ${sourceLibraries.map(library => `<option value="${library.id}">${library.name}</option>`).join('')}
+        ${sourceLibraries.map(library => `<option value="${escapeHtml(library.id)}">${escapeHtml(library.name)}</option>`).join('')}
     `;
 
     const canRestoreSelection = sourceLibraries.some(library => library.id === previousValue);
@@ -186,7 +198,7 @@ function renderParentalRatingFilterOptions() {
 
     parentalRatingSelect.innerHTML = `
         <option value="all">All Parental Ratings</option>
-        ${parentalRatings.map(rating => `<option value="${rating}">${rating}</option>`).join('')}
+        ${parentalRatings.map(rating => `<option value="${escapeHtml(rating)}">${escapeHtml(rating)}</option>`).join('')}
     `;
 
     parentalRatingSelect.value = parentalRatings.includes(previousParentalValue) ? previousParentalValue : 'all';
@@ -221,7 +233,7 @@ function renderGrid(itemsToRender: MediaItem[]) {
         }
 
         const tagsHtml = (item.Tags || []).map((t: string) =>
-            `<span class="media-tag">${t}</span>`
+            `<span class="media-tag">${escapeHtml(t)}</span>`
         ).join('');
 
         const checkHtml = isSelected ? `<div class="media-card-check">✓</div>` : '';
@@ -232,8 +244,8 @@ function renderGrid(itemsToRender: MediaItem[]) {
                 ${imgHtml}
             </div>
             <div class="media-card-info">
-                <div class="media-card-title">${item.Name}</div>
-                <div class="media-card-type">${item.Type}${item.SourceLibraryName ? ` • ${item.SourceLibraryName}` : ''}</div>
+                <div class="media-card-title">${escapeHtml(item.Name)}</div>
+                <div class="media-card-type">${escapeHtml(item.Type)}${item.SourceLibraryName ? ` • ${escapeHtml(item.SourceLibraryName)}` : ''}</div>
                 <div class="media-card-tags">
                     ${tagsHtml}
                 </div>
@@ -356,8 +368,8 @@ function renderSidebarEditor(tagCounts: Record<string, number>) {
                 ${proposedTags.length === 0 ? '<span class="no-tags-msg">No tags</span>' : ''}
                 ${proposedTags.map(t => `
                     <div class="proposed-tag">
-                        ${t}
-                        <span data-remove-tag="${t}" class="proposed-tag-remove">&times;</span>
+                        ${escapeHtml(t)}
+                        <span data-remove-tag="${escapeHtml(t)}" class="proposed-tag-remove">&times;</span>
                     </div>
                 `).join('')}
             </div>
@@ -372,8 +384,8 @@ function renderSidebarEditor(tagCounts: Record<string, number>) {
                     <h4 class="existing-tags-title">Existing Tags in Selection:</h4>
                     <div class="existing-tags-list">
                         ${Object.entries(tagCounts).map(([t, count]) => `
-                            <span data-add-tag="${t}" title="Present on ${count} item(s)" class="existing-tag">
-                                ${t} <span class="existing-tag-count">(${count})</span>
+                            <span data-add-tag="${escapeHtml(t)}" title="Present on ${count} item(s)" class="existing-tag">
+                                ${escapeHtml(t)} <span class="existing-tag-count">(${count})</span>
                             </span>
                         `).join('')}
                     </div>
@@ -407,11 +419,11 @@ function renderSidebarEditor(tagCounts: Record<string, number>) {
             thumbHtml = `<img src="${thumbUrl}" class="selected-item-thumb-img" />`;
         }
         return `
-                        <div data-deselect="${item.Id}" class="selected-item-card">
+                        <div data-deselect="${escapeHtml(item.Id)}" class="selected-item-card">
                             ${thumbHtml}
                             <div class="selected-item-info">
-                                <div class="selected-item-name">${item.Name}</div>
-                                <div class="selected-item-type">${item.Type}</div>
+                                <div class="selected-item-name">${escapeHtml(item.Name)}</div>
+                                <div class="selected-item-type">${escapeHtml(item.Type)}</div>
                             </div>
                             <span class="selected-item-remove">&times;</span>
                         </div>
