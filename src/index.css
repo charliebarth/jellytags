@@ -202,6 +202,42 @@ select.glass-input option {
   box-shadow: none;
 }
 
+/* Footer */
+.app-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 12px 24px;
+  margin: 0 16px 12px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.app-footer-links {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.app-footer a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.app-footer a:hover {
+  color: var(--jelly-blue);
+}
+
+.app-footer-icon {
+  display: block;
+}
+
 /* Main Content */
 .main-layout {
   display: flex;
@@ -599,6 +635,11 @@ select.glass-input option {
 
   #filters-toggle.active {
     background: linear-gradient(135deg, var(--jelly-blue), var(--jelly-purple));
+  }
+
+  .app-footer {
+    justify-content: center;
+    text-align: center;
   }
 
   .main-content {
