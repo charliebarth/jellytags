@@ -89,7 +89,10 @@ async function init() {
             throw new Error("No users found. Ensure your API Token has admin permissions.");
         }
 
-        currentUserId = usersRes.data[0].Id as string;
+        // Prefer an administrator account. The first user returned by the API may
+        // be a restricted account whose limited library access would hide most items.
+        const adminUser = usersRes.data.find(u => u.Policy?.IsAdministrator);
+        currentUserId = (adminUser || usersRes.data[0]).Id as string;
 
         await fetchItems();
     } catch (e) {
