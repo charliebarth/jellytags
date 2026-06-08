@@ -202,6 +202,42 @@ select.glass-input option {
   box-shadow: none;
 }
 
+/* Footer */
+.app-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 12px 24px;
+  margin: 0 16px 12px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.app-footer-links {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.app-footer a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.app-footer a:hover {
+  color: var(--jelly-blue);
+}
+
+.app-footer-icon {
+  display: block;
+}
+
 /* Main Content */
 .main-layout {
   display: flex;
@@ -579,6 +615,33 @@ select.glass-input option {
     display: inline-block !important;
   }
 
+  /* Collapsed by default to free up vertical space; the Filters button toggles
+     .show. When open the controls wrap into a tidy grid instead of overflowing. */
+  .header-actions {
+    display: none;
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .header-actions.show {
+    display: flex;
+  }
+
+  .header-actions > * {
+    flex: 1 1 calc(50% - 5px);
+    min-width: 0 !important;
+  }
+
+  #filters-toggle.active {
+    background: linear-gradient(135deg, var(--jelly-blue), var(--jelly-purple));
+  }
+
+  .app-footer {
+    justify-content: center;
+    text-align: center;
+  }
+
   .main-content {
     width: 100%;
   }
@@ -587,17 +650,18 @@ select.glass-input option {
     position: fixed !important;
     top: 0;
     right: 0 !important;
-    width: 100vw;
+    width: 100%;
     height: 100vh;
     padding: 0 !important;
     z-index: 100;
     pointer-events: none;
+    overflow: hidden;
   }
 
   #tag-editor-sidebar {
-    width: 100vw !important;
+    width: 100% !important;
     height: 100vh !important;
-    max-width: 100vw;
+    max-width: 100%;
     border-radius: 0;
     border: none;
     margin: 0;
@@ -617,7 +681,7 @@ select.glass-input option {
     position: fixed;
     top: 0;
     left: 0;
-    width: 100vw;
+    width: 100%;
     height: 100vh;
     background: rgba(0, 0, 0, 0.3);
     z-index: 99;
