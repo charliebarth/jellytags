@@ -91,6 +91,15 @@ sidebarToggle?.addEventListener('click', openSidebar);
 sidebarClose?.addEventListener('click', closeSidebar);
 sidebarOverlay?.addEventListener('click', closeSidebar);
 
+// On narrow screens the filter and sort controls are collapsed by default to
+// free up vertical space; this button reveals them.
+const filtersToggle = document.getElementById('filters-toggle');
+const headerActions = document.querySelector('.header-actions');
+filtersToggle?.addEventListener('click', () => {
+    headerActions?.classList.toggle('show');
+    filtersToggle.classList.toggle('active');
+});
+
 // 3. Core Logic
 async function init() {
     try {

@@ -579,6 +579,28 @@ select.glass-input option {
     display: inline-block !important;
   }
 
+  /* Collapsed by default to free up vertical space; the Filters button toggles
+     .show. When open the controls wrap into a tidy grid instead of overflowing. */
+  .header-actions {
+    display: none;
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .header-actions.show {
+    display: flex;
+  }
+
+  .header-actions > * {
+    flex: 1 1 calc(50% - 5px);
+    min-width: 0 !important;
+  }
+
+  #filters-toggle.active {
+    background: linear-gradient(135deg, var(--jelly-blue), var(--jelly-purple));
+  }
+
   .main-content {
     width: 100%;
   }
@@ -587,17 +609,18 @@ select.glass-input option {
     position: fixed !important;
     top: 0;
     right: 0 !important;
-    width: 100vw;
+    width: 100%;
     height: 100vh;
     padding: 0 !important;
     z-index: 100;
     pointer-events: none;
+    overflow: hidden;
   }
 
   #tag-editor-sidebar {
-    width: 100vw !important;
+    width: 100% !important;
     height: 100vh !important;
-    max-width: 100vw;
+    max-width: 100%;
     border-radius: 0;
     border: none;
     margin: 0;
@@ -617,7 +640,7 @@ select.glass-input option {
     position: fixed;
     top: 0;
     left: 0;
-    width: 100vw;
+    width: 100%;
     height: 100vh;
     background: rgba(0, 0, 0, 0.3);
     z-index: 99;
