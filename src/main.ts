@@ -523,10 +523,15 @@ function renderSidebarEditor(tagCounts: Record<string, number>) {
                             ? currentTags.filter((tag: string) => !proposedTags.includes(tag))
                             : [...proposedTags];
 
+                    // Jellyfin rejects the round-tripped DTO when it carries a
+                    // Trickplay map: TrickplayInfoDto fails to deserialize on the
+                    // server and the whole update fails. Strip it before sending.
+                    const { Trickplay: _trickplay, ...sanitizedItem } = serverItem;
+
                     await updateApi.updateItem({
                         itemId: id,
                         baseItemDto: {
-                            ...serverItem,
+                            ...sanitizedItem,
                             Id: id,
                             Name: itemName,
                             Tags: updatedTags,
