@@ -29,6 +29,7 @@ type MediaItem = {
     Name?: string;
     Type?: string;
     Tags?: string[];
+    Genres?: string[];
     DateCreated?: string;
     OfficialRating?: string | null;
     CustomRating?: string | null;
@@ -48,6 +49,24 @@ let sourceLibraries: SourceLibrary[] = [];
 let selectedIds = new Set<string>();
 let currentUserId = '';
 let proposedTags: string[] = [];
+let proposedGenres: string[] = [];
+
+// Which metadata field the sidebar edits. Tags and genres share the same editor.
+type EditField = 'Tags' | 'Genres';
+let editTarget: EditField = 'Tags';
+
+function getProposed(): string[] {
+    return editTarget === 'Genres' ? proposedGenres : proposedTags;
+}
+
+function getItemValues(item: MediaItem): string[] {
+    return (editTarget === 'Genres' ? item.Genres : item.Tags) || [];
+}
+
+// Lowercase singular noun for the active field, used in placeholders/messages.
+function targetNoun(): string {
+    return editTarget === 'Genres' ? 'genre' : 'tag';
+}
 
 // Escape user-controlled strings before injecting into innerHTML. Media names,
 // tags and library names can contain <, >, &, or quotes which otherwise break
@@ -142,7 +161,7 @@ async function fetchItems() {
                 userId: currentUserId,
                 recursive: true,
                 includeItemTypes: [BaseItemKind.Movie, BaseItemKind.Series] as BaseItemKind[],
-                fields: [ItemFields.Tags, ItemFields.DateCreated] as ItemFields[]
+                fields: [ItemFields.Tags, ItemFields.Genres, ItemFields.DateCreated] as ItemFields[]
             });
 
             (fallbackRes.data.Items || []).forEach(item => {
@@ -156,7 +175,7 @@ async function fetchItems() {
                     parentId: library.id,
                     recursive: true,
                     includeItemTypes: [BaseItemKind.Movie, BaseItemKind.Series] as BaseItemKind[],
-                    fields: [ItemFields.Tags, ItemFields.DateCreated] as ItemFields[]
+                    fields: [ItemFields.Tags, ItemFields.Genres, ItemFields.DateCreated] as ItemFields[]
                 });
 
                 return (res.data.Items || []).map(item => ({
@@ -331,7 +350,7 @@ function updateSidebar() {
                 <h3 class="sidebar-title">Tag Editor</h3>
                 <button id="sidebar-close" class="sidebar-close-btn mobile-only">&times;</button>
             </div>
-            <p class="sidebar-empty-msg">Select items from the grid to edit their tags.</p>
+            <p class="sidebar-empty-msg">Select items from the grid to edit their tags and genres.</p>
         `;
         const closeBtn = document.getElementById('sidebar-close');
         closeBtn?.addEventListener('click', closeSidebar);
@@ -339,27 +358,28 @@ function updateSidebar() {
         return;
     }
 
-    // Determine tags to propose
+    // Count the values already present on the selection for the active field.
     const selectedItems = allItems.filter(i => selectedIds.has(i.Id));
 
-    const tagCounts: Record<string, number> = {};
+    const valueCounts: Record<string, number> = {};
     selectedItems.forEach(i => {
-        (i.Tags || []).forEach((t: string) => {
-            tagCounts[t] = (tagCounts[t] || 0) + 1;
+        getItemValues(i).forEach((v: string) => {
+            valueCounts[v] = (valueCounts[v] || 0) + 1;
         });
     });
 
-    renderSidebarEditor(tagCounts);
+    renderSidebarEditor(valueCounts);
 }
 
-function renderSidebarEditor(tagCounts: Record<string, number>) {
+function renderSidebarEditor(valueCounts: Record<string, number>) {
     const selectedItems = allItems.filter(i => selectedIds.has(i.Id));
     const applyButtonLabel = getApplyButtonLabel();
+    const proposed = getProposed();
 
     sidebarEl.innerHTML = `
         <div>
             <div class="sidebar-top-bar">
-                <h3 class="sidebar-title" style="margin: 0;">Edit Tags</h3>
+                <h3 class="sidebar-title" style="margin: 0;">Edit ${editTarget}</h3>
                 <div class="sidebar-actions-group">
                     <span class="sidebar-selection-count">
                         ${selectedIds.size} selected
@@ -372,10 +392,15 @@ function renderSidebarEditor(tagCounts: Record<string, number>) {
             </button>
         </div>
 
-            <h4 class="section-subtitle">Tags to Apply</h4>
+            <div class="edit-target-toggle">
+                <button type="button" class="edit-target-btn ${editTarget === 'Tags' ? 'active' : ''}" data-target="Tags">Tags</button>
+                <button type="button" class="edit-target-btn ${editTarget === 'Genres' ? 'active' : ''}" data-target="Genres">Genres</button>
+            </div>
+
+            <h4 class="section-subtitle">${editTarget} to Apply</h4>
             <div id="proposed-tags-container" class="proposed-tags-container">
-                ${proposedTags.length === 0 ? '<span class="no-tags-msg">No tags</span>' : ''}
-                ${proposedTags.map(t => `
+                ${proposed.length === 0 ? `<span class="no-tags-msg">No ${targetNoun()}s</span>` : ''}
+                ${proposed.map(t => `
                     <div class="proposed-tag">
                         ${escapeHtml(t)}
                         <span data-remove-tag="${escapeHtml(t)}" class="proposed-tag-remove">&times;</span>
@@ -384,15 +409,15 @@ function renderSidebarEditor(tagCounts: Record<string, number>) {
             </div>
 
             <form id="add-tag-form" class="add-tag-form">
-                <input id="new-tag-input" type="text" class="glass-input" placeholder="Add new tag..." autocomplete="off" />
+                <input id="new-tag-input" type="text" class="glass-input" placeholder="Add new ${targetNoun()}..." autocomplete="off" />
                 <button type="submit" class="glass-button add-tag-btn">+</button>
             </form>
 
-            ${Object.keys(tagCounts).length > 0 ? `
+            ${Object.keys(valueCounts).length > 0 ? `
                 <div class="existing-tags-section">
-                    <h4 class="existing-tags-title">Existing Tags in Selection:</h4>
+                    <h4 class="existing-tags-title">Existing ${editTarget} in Selection:</h4>
                     <div class="existing-tags-list">
-                        ${Object.entries(tagCounts).map(([t, count]) => `
+                        ${Object.entries(valueCounts).map(([t, count]) => `
                             <span data-add-tag="${escapeHtml(t)}" title="Present on ${count} item(s)" class="existing-tag">
                                 ${escapeHtml(t)} <span class="existing-tag-count">(${count})</span>
                             </span>
@@ -445,13 +470,24 @@ function renderSidebarEditor(tagCounts: Record<string, number>) {
 
     document.getElementById('sidebar-close')?.addEventListener('click', closeSidebar);
 
+    document.querySelectorAll('[data-target]').forEach(el => {
+        el.addEventListener('click', (e) => {
+            const target = (e.currentTarget as HTMLElement).getAttribute('data-target') as EditField;
+            if (target !== editTarget) {
+                editTarget = target;
+                updateSidebar();
+            }
+        });
+    });
+
     document.getElementById('add-tag-form')?.addEventListener('submit', (e) => {
         e.preventDefault();
         const input = document.getElementById('new-tag-input') as HTMLInputElement;
         const val = input.value.trim();
-        if (val && !proposedTags.includes(val)) {
-            proposedTags.push(val);
-            renderSidebarEditor(tagCounts);
+        const proposed = getProposed();
+        if (val && !proposed.includes(val)) {
+            proposed.push(val);
+            renderSidebarEditor(valueCounts);
         }
     });
 
@@ -466,18 +502,20 @@ function renderSidebarEditor(tagCounts: Record<string, number>) {
 
     document.querySelectorAll('[data-remove-tag]').forEach(el => {
         el.addEventListener('click', (e) => {
-            const tag = (e.currentTarget as HTMLElement).getAttribute('data-remove-tag')!;
-            proposedTags.splice(proposedTags.indexOf(tag), 1);
-            renderSidebarEditor(tagCounts);
+            const value = (e.currentTarget as HTMLElement).getAttribute('data-remove-tag')!;
+            const proposed = getProposed();
+            proposed.splice(proposed.indexOf(value), 1);
+            renderSidebarEditor(valueCounts);
         });
     });
 
     document.querySelectorAll('[data-add-tag]').forEach(el => {
         el.addEventListener('click', (e) => {
-            const tag = (e.currentTarget as HTMLElement).getAttribute('data-add-tag')!;
-            if (!proposedTags.includes(tag)) {
-                proposedTags.push(tag);
-                renderSidebarEditor(tagCounts);
+            const value = (e.currentTarget as HTMLElement).getAttribute('data-add-tag')!;
+            const proposed = getProposed();
+            if (!proposed.includes(value)) {
+                proposed.push(value);
+                renderSidebarEditor(valueCounts);
             }
         });
     });
@@ -540,12 +578,15 @@ function renderSidebarEditor(tagCounts: Record<string, number>) {
                         throw new Error('Cannot update item without a Name field.');
                     }
 
-                    const currentTags = serverItem.Tags || localItem?.Tags || [];
-                    const updatedTags = mode === 'append'
-                        ? Array.from(new Set([...currentTags, ...proposedTags]))
+                    const proposed = getProposed();
+                    const currentValues = (editTarget === 'Genres'
+                        ? (serverItem.Genres || localItem?.Genres)
+                        : (serverItem.Tags || localItem?.Tags)) || [];
+                    const updatedValues = mode === 'append'
+                        ? Array.from(new Set([...currentValues, ...proposed]))
                         : mode === 'remove'
-                            ? currentTags.filter((tag: string) => !proposedTags.includes(tag))
-                            : [...proposedTags];
+                            ? currentValues.filter((value: string) => !proposed.includes(value))
+                            : [...proposed];
 
                     // Jellyfin rejects the round-tripped DTO when it carries a
                     // Trickplay map: TrickplayInfoDto fails to deserialize on the
@@ -558,13 +599,16 @@ function renderSidebarEditor(tagCounts: Record<string, number>) {
                             ...sanitizedItem,
                             Id: id,
                             Name: itemName,
-                            Tags: updatedTags,
-                            Genres: serverItem.Genres || [],
+                            Tags: editTarget === 'Tags' ? updatedValues : (serverItem.Tags || []),
+                            Genres: editTarget === 'Genres' ? updatedValues : (serverItem.Genres || []),
                             ProviderIds: serverItem.ProviderIds || {}
                         }
                     });
 
-                    if (localItem) localItem.Tags = [...updatedTags];
+                    if (localItem) {
+                        if (editTarget === 'Genres') localItem.Genres = [...updatedValues];
+                        else localItem.Tags = [...updatedValues];
+                    }
 
                     successCount++;
                 } catch (itemError) {
@@ -588,7 +632,7 @@ function renderSidebarEditor(tagCounts: Record<string, number>) {
             }
 
             if (failedItems.length === 0) {
-                alert(`Successfully updated tags for ${successCount} items!`);
+                alert(`Successfully updated ${editTarget.toLowerCase()} for ${successCount} items!`);
             } else {
                 const preview = failedItems.slice(0, 10).join(', ');
                 const remaining = failedItems.length > 10 ? ` (+${failedItems.length - 10} more)` : '';
