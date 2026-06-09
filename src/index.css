@@ -716,9 +716,17 @@ select.glass-input option {
     overflow-y: visible;
   }
 
+  /* flex-shrink:0 keeps these from collapsing: a flex item with overflow
+     other than visible loses its auto min-height, so the column would
+     otherwise squeeze the tag lists to a sliver when content overflows. */
   .proposed-tags-container {
+    flex-shrink: 0;
     max-height: 22vh;
     overflow-y: auto;
+  }
+
+  .existing-tags-section {
+    flex-shrink: 0;
   }
 
   .existing-tags-list {
