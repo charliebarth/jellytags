@@ -445,6 +445,36 @@ select.glass-input option {
   margin-top: 0;
 }
 
+/* Tags / Genres segmented toggle */
+.edit-target-toggle {
+  display: flex;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+  margin: 16px 0;
+}
+
+.edit-target-btn {
+  flex: 1;
+  padding: 6px 12px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.edit-target-btn.active {
+  background: linear-gradient(135deg, var(--jelly-blue), var(--jelly-purple));
+  color: #fff;
+}
+
 .proposed-tags-container {
   display: flex;
   flex-wrap: wrap;
