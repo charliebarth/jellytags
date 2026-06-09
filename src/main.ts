@@ -417,13 +417,17 @@ function renderSidebarEditor(valueCounts: Record<string, number>) {
                 <div class="existing-tags-section">
                     <h4 class="existing-tags-title">Existing ${editTarget} in Selection:</h4>
                     <div class="existing-tags-list">
-                        ${Object.entries(valueCounts).map(([t, count]) => `
-                            <span data-add-tag="${escapeHtml(t)}" title="Present on ${count} item(s)" class="existing-tag">
+                        ${Object.entries(valueCounts).map(([t, count]) => {
+        const isStaged = proposed.includes(t);
+        const hint = isStaged ? 'Staged — click to unstage' : `Present on ${count} item(s) — click to stage`;
+        return `
+                            <span data-add-tag="${escapeHtml(t)}" title="${hint}" class="existing-tag${isStaged ? ' staged' : ''}">
                                 ${escapeHtml(t)} <span class="existing-tag-count">(${count})</span>
                             </span>
-                        `).join('')}
+                        `;
+    }).join('')}
                     </div>
-                    <p class="existing-tag-hint">Click to add to all</p>
+                    <p class="existing-tag-hint">Click a tag to stage it for all selected items, then Apply. Click again to unstage.</p>
                 </div>
             ` : ''}
         </div>
@@ -513,10 +517,10 @@ function renderSidebarEditor(valueCounts: Record<string, number>) {
         el.addEventListener('click', (e) => {
             const value = (e.currentTarget as HTMLElement).getAttribute('data-add-tag')!;
             const proposed = getProposed();
-            if (!proposed.includes(value)) {
-                proposed.push(value);
-                renderSidebarEditor(valueCounts);
-            }
+            const idx = proposed.indexOf(value);
+            if (idx === -1) proposed.push(value);
+            else proposed.splice(idx, 1);
+            renderSidebarEditor(valueCounts);
         });
     });
 

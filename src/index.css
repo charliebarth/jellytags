@@ -538,6 +538,22 @@ select.glass-input option {
   border-radius: 4px;
   cursor: pointer;
   border: 1px solid transparent;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.existing-tag:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.existing-tag.staged {
+  background: rgba(170, 92, 195, 0.25);
+  color: #e5b3fe;
+  border-color: rgba(170, 92, 195, 0.6);
+}
+
+.existing-tag.staged .existing-tag-count {
+  opacity: 0.7;
 }
 
 .existing-tag-count {
