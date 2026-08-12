@@ -1,0 +1,26 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Radial-gradient backdrop from the original design, layered under Vuetify's
+   themed surfaces (which sit on translucent backgrounds for the glass look). */
+.v-application {
+  background: radial-gradient(circle at top right, #1a202c, #0d1117) !important;
+}
+
+/* Reusable glass panel: translucent fill + blur, matching the old .glass-panel. */
+.glass {
+  background: rgba(255, 255, 255, 0.05) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
