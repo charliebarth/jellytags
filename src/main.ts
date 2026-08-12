@@ -88,6 +88,7 @@ const sidebarOverlay = document.getElementById('sidebar-overlay') as HTMLDivElem
 const searchInput = document.getElementById('search-input') as HTMLInputElement;
 const refreshBtn = document.getElementById('refresh-btn') as HTMLButtonElement;
 const selectAllBtn = document.getElementById('select-all-btn') as HTMLButtonElement;
+const deselectAllBtn = document.getElementById('deselect-all-btn') as HTMLButtonElement;
 const sortSelect = document.getElementById('sort-select') as HTMLSelectElement;
 const sourceLibrarySelect = document.getElementById('source-library-select') as HTMLSelectElement;
 const parentalRatingSelect = document.getElementById('parental-rating-select') as HTMLSelectElement;
@@ -672,6 +673,7 @@ function getApplyButtonLabel() {
 searchInput.addEventListener('input', filterAndRender);
 refreshBtn.addEventListener('click', fetchItems);
 selectAllBtn.addEventListener('click', selectAllFiltered);
+deselectAllBtn.addEventListener('click', clearSelection);
 sortSelect.addEventListener('change', filterAndRender);
 sourceLibrarySelect.addEventListener('change', filterAndRender);
 parentalRatingSelect.addEventListener('change', filterAndRender);
