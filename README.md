@@ -13,10 +13,11 @@ JellyTags is a lightweight, responsive web application for managing tags within 
 > This is an early-stage release. While it has been thoroughly tested, this application modifies your media metadata. We strongly recommend creating a backup of your Jellyfin database before use. Use it at your own risk.
 
 ## Features
-- **Batch Editing:** Select multiple media items and apply tags to all of them at once.
-- **Tag Suggestions:** View existing tags across your selection and easily propose new or current ones.
-- **Responsive Design:** A mobile-friendly sliding sidebar allows you to manage tags on the go.
-- **Sorting & Filtering:** Find specific media quickly using the built-in search bar and sorting dropdown.
+- **Batch Editing:** Select multiple media items and apply **tags or genres** to all of them at once (append, replace, or remove).
+- **Tag Suggestions:** View existing tags/genres across your selection and stage new or current ones.
+- **Tag Filter:** Filter the grid by one or more tags with **Has all** / **Missing all** modes — e.g. quickly find everything *missing* a given tag. Backed by a searchable picker that scales to thousands of tags.
+- **Responsive Design:** A mobile-friendly sliding drawer lets you manage metadata on the go.
+- **Sorting & Filtering:** Find specific media quickly with the search bar, source-library and parental-rating filters, and sorting dropdown.
 
 ## Requirements
 - A [Jellyfin](https://jellyfin.org/) server.
@@ -50,9 +51,13 @@ Access the interface at `http://localhost:8181`.
 
 ## Installation (Local Development)
 
+Built with **Vue 3 + Vuetify + Vite + TypeScript** (Pinia for state). The app is
+pure frontend — it talks directly to the Jellyfin REST API via `@jellyfin/sdk`;
+there is no backend.
+
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/christt105/jellytags.git
+git clone https://github.com/charliebarth/jellytags.git
 cd jellytags
 ```
 
@@ -70,8 +75,16 @@ VITE_JELLYFIN_TOKEN=your_admin_api_token
 
 ### 4. Start the Development Server
 ```bash
-npm run dev
+npm run dev      # Vite dev server on http://localhost:8181
 ```
+
+Other scripts: `npm run build` (type-checks with `vue-tsc`, then builds),
+`npm run test` (Vitest), `npm run typecheck`.
+
+> This is a fork of [`christt105/jellytags`](https://github.com/christt105/jellytags).
+> The production Docker image is built from source (multi-stage → nginx); the
+> Jellyfin URL/token are injected at container start by `docker-entrypoint.sh`,
+> so the same image works against any server without rebuilding.
 
 ## Support / Sponsor
 If you found this tool useful, consider buying me a coffee!
