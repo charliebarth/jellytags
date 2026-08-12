@@ -51,6 +51,13 @@ let currentUserId = '';
 let proposedTags: string[] = [];
 let proposedGenres: string[] = [];
 
+// Header tag filter: narrow the grid to items that have ALL / NONE of a chosen
+// set of tags. Independent of the free-text search box (a loose case-insensitive
+// substring match over name + tags). 'missing' mode is the "not tagged yet"
+// finder — keep only items carrying none of the selected tags.
+let tagFilterMode: 'has' | 'missing' = 'has';
+let selectedFilterTags = new Set<string>();
+
 // Which metadata field the sidebar edits. Tags and genres share the same editor.
 type EditField = 'Tags' | 'Genres';
 let editTarget: EditField = 'Tags';
@@ -92,6 +99,9 @@ const deselectAllBtn = document.getElementById('deselect-all-btn') as HTMLButton
 const sortSelect = document.getElementById('sort-select') as HTMLSelectElement;
 const sourceLibrarySelect = document.getElementById('source-library-select') as HTMLSelectElement;
 const parentalRatingSelect = document.getElementById('parental-rating-select') as HTMLSelectElement;
+const tagFilterWrapper = document.getElementById('tag-filter') as HTMLDivElement;
+const tagFilterBtn = document.getElementById('tag-filter-btn') as HTMLButtonElement;
+const tagFilterPanel = document.getElementById('tag-filter-panel') as HTMLDivElement;
 const sidebarToggle = document.getElementById('sidebar-toggle') as HTMLButtonElement;
 const sidebarClose = document.getElementById('sidebar-close') as HTMLButtonElement;
 
@@ -196,6 +206,9 @@ async function fetchItems() {
 
         allItems = Array.from(allItemsById.values());
         renderParentalRatingFilterOptions();
+        pruneTagFilter();
+        renderTagFilterButton();
+        if (!tagFilterPanel.hidden) renderTagFilterPanel();
 
         filterAndRender();
     } catch (err) {
@@ -231,6 +244,112 @@ function renderParentalRatingFilterOptions() {
     `;
 
     parentalRatingSelect.value = parentalRatings.includes(previousParentalValue) ? previousParentalValue : 'all';
+}
+
+// Distinct tags present across the loaded library, sorted for display.
+function getAvailableTags(): string[] {
+    return Array.from(new Set(allItems.flatMap(item => item.Tags || [])))
+        .sort((a, b) => a.localeCompare(b));
+}
+
+// Drop any selected filter tags that no longer exist after a refresh so the
+// filter can't silently pin the grid to zero results.
+function pruneTagFilter() {
+    const available = new Set(getAvailableTags());
+    Array.from(selectedFilterTags).forEach(tag => {
+        if (!available.has(tag)) selectedFilterTags.delete(tag);
+    });
+}
+
+// Keep an item when it has ALL selected tags ('has') or NONE of them ('missing').
+// Tag matching is exact (not substring) — these are whole tag values.
+function matchesTagFilter(item: MediaItem): boolean {
+    if (selectedFilterTags.size === 0) return true;
+    const itemTags = new Set(item.Tags || []);
+    if (tagFilterMode === 'missing') {
+        return Array.from(selectedFilterTags).every(tag => !itemTags.has(tag));
+    }
+    return Array.from(selectedFilterTags).every(tag => itemTags.has(tag));
+}
+
+function renderTagFilterButton() {
+    const count = selectedFilterTags.size;
+    if (count === 0) {
+        tagFilterBtn.textContent = 'Filter by Tags';
+        tagFilterBtn.classList.remove('active');
+        return;
+    }
+    const verb = tagFilterMode === 'missing' ? 'Missing' : 'Has';
+    tagFilterBtn.textContent = `${verb} ${count} tag${count === 1 ? '' : 's'}`;
+    tagFilterBtn.classList.add('active');
+}
+
+function renderTagFilterPanel() {
+    pruneTagFilter();
+    const tags = getAvailableTags();
+
+    const optionsHtml = tags.length === 0
+        ? `<p class="tag-filter-empty">No tags in your library yet.</p>`
+        : tags.map(tag => `
+            <label class="tag-filter-option">
+                <input type="checkbox" data-filter-tag="${escapeHtml(tag)}" ${selectedFilterTags.has(tag) ? 'checked' : ''} />
+                <span>${escapeHtml(tag)}</span>
+            </label>
+        `).join('');
+
+    tagFilterPanel.innerHTML = `
+        <div class="tag-filter-mode">
+            <button type="button" class="tag-filter-mode-btn ${tagFilterMode === 'has' ? 'active' : ''}" data-filter-mode="has">Has all</button>
+            <button type="button" class="tag-filter-mode-btn ${tagFilterMode === 'missing' ? 'active' : ''}" data-filter-mode="missing">Missing all</button>
+        </div>
+        <div class="tag-filter-list">
+            ${optionsHtml}
+        </div>
+        <button type="button" class="tag-filter-clear" ${selectedFilterTags.size === 0 ? 'disabled' : ''}>Clear tag filter</button>
+    `;
+
+    tagFilterPanel.querySelectorAll('[data-filter-mode]').forEach(el => {
+        el.addEventListener('click', (e) => {
+            const mode = (e.currentTarget as HTMLElement).getAttribute('data-filter-mode') as 'has' | 'missing';
+            if (mode !== tagFilterMode) {
+                tagFilterMode = mode;
+                renderTagFilterPanel();
+                renderTagFilterButton();
+                filterAndRender();
+            }
+        });
+    });
+
+    tagFilterPanel.querySelectorAll('[data-filter-tag]').forEach(el => {
+        el.addEventListener('change', (e) => {
+            const checkbox = e.currentTarget as HTMLInputElement;
+            const tag = checkbox.getAttribute('data-filter-tag')!;
+            if (checkbox.checked) selectedFilterTags.add(tag);
+            else selectedFilterTags.delete(tag);
+            // Update the Clear button in place rather than re-rendering the whole
+            // panel, so the checkbox list doesn't scroll-jump while ticking boxes.
+            const clearBtn = tagFilterPanel.querySelector('.tag-filter-clear') as HTMLButtonElement | null;
+            if (clearBtn) clearBtn.disabled = selectedFilterTags.size === 0;
+            renderTagFilterButton();
+            filterAndRender();
+        });
+    });
+
+    tagFilterPanel.querySelector('.tag-filter-clear')?.addEventListener('click', () => {
+        selectedFilterTags.clear();
+        renderTagFilterPanel();
+        renderTagFilterButton();
+        filterAndRender();
+    });
+}
+
+function openTagFilter() {
+    renderTagFilterPanel();
+    tagFilterPanel.hidden = false;
+}
+
+function closeTagFilter() {
+    tagFilterPanel.hidden = true;
 }
 
 function renderGrid(itemsToRender: MediaItem[]) {
@@ -315,6 +434,7 @@ function filterAndRender() {
     let filtered = allItems.filter(i =>
         (selectedLibraryId === 'all' || i.SourceLibraryId === selectedLibraryId) &&
         (selectedParentalRating === 'all' || (i.OfficialRating || '').trim() === selectedParentalRating) &&
+        matchesTagFilter(i) &&
         (
             (i.Name || '').toLowerCase().includes(q) ||
             (i.Tags && i.Tags.some((t: string) => t.toLowerCase().includes(q)))
@@ -677,6 +797,19 @@ deselectAllBtn.addEventListener('click', clearSelection);
 sortSelect.addEventListener('change', filterAndRender);
 sourceLibrarySelect.addEventListener('change', filterAndRender);
 parentalRatingSelect.addEventListener('change', filterAndRender);
+
+tagFilterBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (tagFilterPanel.hidden) openTagFilter();
+    else closeTagFilter();
+});
+
+// Close the tag-filter popover when clicking anywhere outside of it.
+document.addEventListener('click', (e) => {
+    if (!tagFilterPanel.hidden && !tagFilterWrapper.contains(e.target as Node)) {
+        closeTagFilter();
+    }
+});
 
 // Boot
 init();
